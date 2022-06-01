@@ -56,6 +56,7 @@ import org.flowable.eventregistry.impl.runtime.EventPayloadInstanceImpl;
 import org.flowable.eventregistry.model.ChannelModel;
 import org.flowable.eventregistry.model.EventPayload;
 import org.flowable.eventregistry.spring.test.TestEventConsumer;
+import org.flowable.eventregistry.spring.test.ThrowingEventConsumer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -625,6 +626,60 @@ class KafkaChannelDefinitionProcessorTest {
                 tuple("testDoubleHeader", 12.3)
             );
         assertThat(kermitEvent.getCorrelationParameterInstances()).isEmpty();
+    }
+
+    @Test
+    void eventShouldBeReceivedMultipleTimesAfterAnExceptionIsThrown() throws Exception {
+        createTopic("test-throwing-topic");
+        ThrowingEventConsumer throwingEventConsumer = new ThrowingEventConsumer();
+        throwingEventConsumer.setNumberOfExceptionsToThrow(5);
+        eventRegistry.registerEventRegistryEventConsumer(throwingEventConsumer);
+
+        try {
+
+            eventRepositoryService.createInboundChannelModelBuilder()
+                    .key("newCustomerChannel")
+                    .resourceName("customer.channel")
+                    .kafkaChannelAdapter("test-throwing-topic")
+                    .eventProcessingPipeline()
+                    .jsonDeserializer()
+                    .detectEventKeyUsingJsonField("eventKey")
+                    .jsonFieldsMapDirectlyToPayload()
+                    .deploy();
+
+            // Give time for the consumers to register properly in the groups
+            // This is linked to the session timeout property for the consumers
+            Thread.sleep(600);
+
+            eventRepositoryService.createEventModelBuilder()
+                    .resourceName("testEvent.event")
+                    .key("test")
+                    .correlationParameter("customer", EventPayloadTypes.STRING)
+                    .payload("name", EventPayloadTypes.STRING)
+                    .deploy();
+
+            kafkaTemplate.send("test-throwing-topic", "{"
+                            + "    \"eventKey\": \"test\","
+                            + "    \"customer\": \"kermit\","
+                            + "    \"name\": \"Kermit the Frog\""
+                            + "}")
+                    .get(5, TimeUnit.SECONDS);
+
+            await("receive events")
+                    .atMost(Duration.ofSeconds(5))
+                    .pollInterval(Duration.ofMillis(200))
+                    .untilAsserted(() -> assertThat(throwingEventConsumer.getNumberOfExceptionsToThrow()).isNegative());
+
+            // The test event consumer will receive 6 events, since it throws an exception
+            assertThat(throwingEventConsumer.getEvents())
+                    .extracting(EventRegistryEvent::getType)
+                    .containsOnly("test")
+                    .hasSize(6);
+
+        } finally {
+            eventRegistry.removeFlowableEventRegistryEventConsumer(throwingEventConsumer);
+        }
+
     }
 
     @Test
