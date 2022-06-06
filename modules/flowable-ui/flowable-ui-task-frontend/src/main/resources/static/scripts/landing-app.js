@@ -82,11 +82,11 @@ flowableApp
         $rootScope.alerts = {
             queue: []
         };
-        
+
         $rootScope.webRootUrl = function() {
             return FLOWABLE.CONFIG.webContextRoot;
         };
-        
+
         $rootScope.restRootUrl = function() {
             return FLOWABLE.CONFIG.contextRoot;
         };
@@ -143,6 +143,10 @@ flowableApp
             $window.location.href = FLOWABLE.CONFIG.contextRoot + '/app/logout';
         };
 
+        $rootScope.changePassword = function (){
+            $window.location.href = FLOWABLE.CONFIG.contextRoot + '/idm/#/profile-mgmt';
+        }
+
         $http.get(FLOWABLE.CONFIG.landingContextRoot + '/app/rest/account')
         	.success(function (data, status, headers, config) {
               	$rootScope.account = data;
@@ -153,7 +157,7 @@ flowableApp
      }])
      .run(['$rootScope', '$location', '$window', '$translate', '$modal',
         function($rootScope, $location, $window, $translate, $modal) {
-         
+
         /* Auto-height */
 
         $rootScope.window = {};

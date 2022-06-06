@@ -1,9 +1,9 @@
 /* Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *      http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -25,7 +25,9 @@ import org.flowable.idm.api.UserQuery;
 import org.flowable.ui.common.service.exception.BadRequestException;
 import org.flowable.ui.common.service.exception.ConflictingRequestException;
 import org.flowable.ui.common.service.exception.NotFoundException;
+import org.flowable.ui.common.service.exception.NotPermittedException;
 import org.flowable.ui.idm.model.UserInformation;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,6 +39,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserServiceImpl extends AbstractIdmService implements UserService {
 
     private static final int MAX_USER_SIZE = 100;
+
+    @Value("${iws.license-number}")
+    private long licenseNumber = 0;
 
     @Override
     public List<User> getUsers(String filter, String sort, Integer start) {
@@ -122,16 +127,19 @@ public class UserServiceImpl extends AbstractIdmService implements UserService {
 
     @Override
     public User createNewUser(String id, String firstName, String lastName, String email, String password, String tenantId) {
-        if (StringUtils.isBlank(id) ||
-            StringUtils.isBlank(password) ||
-            StringUtils.isBlank(firstName)) {
+        long userNumber = createUserQuery(null, null).count();
+        if (userNumber >= licenseNumber) {
+            throw new BadRequestException("The number of users has reached the upper limit");
+        }
+
+        if (StringUtils.isBlank(id) || StringUtils.isBlank(password) || StringUtils.isBlank(firstName)) {
             throw new BadRequestException("Id, password and first name are required");
         }
 
         if (StringUtils.isNotBlank(email) && identityService.createUserQuery().userEmail(email).count() > 0) {
             throw new ConflictingRequestException("User already registered", "ACCOUNT.SIGNUP.ERROR.ALREADY-REGISTERED");
         }
-        
+
         if (identityService.createUserQuery().userId(id).count() > 0) {
             throw new ConflictingRequestException("User already registered", "ACCOUNT.SIGNUP.ERROR.ALREADY-REGISTERED");
         }

@@ -261,7 +261,9 @@ flowableApp.controller('IdmCreateUserPopupController', ['$rootScope', '$scope', 
                         $rootScope.addAlert('Error while updating user status', 'error');
                     }
 
-                    if (status == 403) {
+                    if (status == 400){
+                        $scope.model.errorMessage = data.message;
+                    } else if (status == 403) {
                         $scope.model.errorMessage = "Forbidden";
                     } else if (status == 409) {
                         $scope.model.errorMessage = "A user with that ID or email address already exists";

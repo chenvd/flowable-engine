@@ -90,6 +90,13 @@ flowableApp
                 verify: authRouteResolver
             }
         })
+        .when('/profile-mgmt', {
+            controller: 'IdmProfileMgmtController',
+            templateUrl: 'views/idm-profile-mgmt.html',
+            resolve: {
+                verify: authRouteResolver
+            }
+        })
         .when('/group-mgmt', {
             controller: 'GroupMgmtController',
             templateUrl: 'views/idm-group-mgmt.html',
